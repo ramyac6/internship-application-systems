@@ -25,6 +25,6 @@ bool CreateRawSocket(const struct sockaddr_storage &addr,
 
 
 // pings the passed in host
-void Ping(int sock_fd, char* host);
+void Ping(int sock_fd, char* host, struct sockaddr_storage addr);
 
 #endif  // CONNECT_H_

@@ -29,6 +29,9 @@ int main(int argc, char **argv) {
     Usage(argv[0]);
   }
 
+
+  // TODO some check to see what was passed in, 4,6,url
+
   // Get an appropriate sockaddr structure.
   struct sockaddr_storage addr;
   if (!LookupName(argv[1], &addr)) {
@@ -42,7 +45,7 @@ int main(int argc, char **argv) {
     Usage(argv[0]);
   }
 
-  Ping(socket_fd, argv[1]);
+  Ping(socket_fd, argv[1], addr);
 
   // Clean up.
   close(socket_fd);

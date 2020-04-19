@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
 
@@ -74,9 +75,46 @@ bool CreateRawSocket(const struct sockaddr_storage &addr,
   return true;
 }
 
-void Ping(int sock_fd, char* host) {
+void Ping(int sock_fd, char* host, struct sockaddr_storage addr) {
   std::cout << "ping " << host << std::endl;
+  struct icmp *packet;
+  char sendpacket[64];
+  char receivepacket[64];
+  int count = 0;
+  int error;
+  socklen_t size;
+  while (true) {
+    sleep(1);
+    // zeros out the packet
+    packet = (struct icmp *)sendpacket;
+    packet->icmp_type = ICMP_ECHO;
+    packet->icmp_code = 0;
+    packet->icmp_seq = count;
+    packet->icmp_id = getpid();
+    // keeps track of when it was sent
+    gettimeofday((struct timeval *)packet->icmp_data, NULL);
+    error = sendto(sock_fd, sendpacket, sizeof(sendpacket), 0, reinterpret_cast<sockaddr*>(&addr), size);
+    
+    if (error < 0) {
+      std::cerr << "Error in sending packet #" << count << std::endl;
+      continue;
+    } else {
+      count++;
+    }
+    error = recvfrom(sock_fd,
+                              receivepacket,
+                              sizeof(receivepacket),
+                              0,
+                              reinterpret_cast<sockaddr*>(&addr),
+                              &size);
+        
+        if(error < 0) {
+            perror("recvfrom error");
+            return;
+        }
+        
+        std::cout << "Sent ICMP Echo Requests to " << host << ": Received, time: " << std::endl;
 
-  return;
+  }
 
 }
