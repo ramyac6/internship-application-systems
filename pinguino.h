@@ -14,15 +14,17 @@
 
 // gets the appropriate sockaddr struct through output parameter
 // returns true if successful, returns false if an error occured
-bool LookupName(char *name, unsigned short port,
-                struct sockaddr_storage *ret_addr,
-                size_t *ret_addrlen);
+bool LookupName(char *name,
+                struct sockaddr_storage *ret_addr);
 
 // connects the socket to the remote host
 // returns socket descriptor through output parameter
 // returns true if connected, returns false if error occured
-bool Connect(const struct sockaddr_storage &addr,
-             const size_t &addrlen,
+bool CreateRawSocket(const struct sockaddr_storage &addr,
              int *ret_fd);
+
+
+// pings the passed in host
+void Ping(int sock_fd, char* host);
 
 #endif  // CONNECT_H_
