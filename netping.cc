@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
 
   // Connect to remote host
   int socket_fd;
+  // NOTE: USING RAW SOCKETS REQUIRES SUDO PERMISSIONS
   if (!CreateRawSocket(addr, &socket_fd)) {
     Usage(argv[0]);
   }

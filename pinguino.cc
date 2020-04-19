@@ -29,7 +29,7 @@ bool LookupName(char *name,
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_RAW;
 
-  // Do the lookup by invoking getaddrinfo().
+  // Lookup by calling getaddrinfo().
   std::cout << "Performing DNS Lookup..." << std::endl;
   if ((retval = getaddrinfo(name, nullptr, &hints, &results)) != 0) {
     std::cerr << "getaddrinfo failed: ";
@@ -37,9 +37,22 @@ bool LookupName(char *name,
     return false;
   }
 
+  // Set ports to 0 for ping
+    if (results->ai_family == AF_INET) {
+    struct sockaddr_in *v4addr = (struct sockaddr_in *) results->ai_addr;
+    v4addr->sin_port = htons(0);
+  } else if (results->ai_family == AF_INET6) {
+    struct sockaddr_in6 *v6addr = (struct sockaddr_in6 *) results->ai_addr;
+    v6addr->sin6_port = htons(0);
+  } else {
+    std::cerr << "getaddrinfo failed to provide an IPv4 or IPv6 address";
+    std::cerr << std::endl;
+    return false;
+  }
+
   // Return the first result.
   assert(results != nullptr);
-  memcpy(ret_addr, results, sizeof(*results));
+  memcpy(ret_addr, results->ai_addr, results->ai_addrlen);
 
   // Clean up.
   freeaddrinfo(results);
@@ -63,4 +76,7 @@ bool CreateRawSocket(const struct sockaddr_storage &addr,
 
 void Ping(int sock_fd, char* host) {
   std::cout << "ping " << host << std::endl;
+
+  return;
+
 }
