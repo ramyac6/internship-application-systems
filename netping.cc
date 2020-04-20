@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -16,7 +17,6 @@
 
 #include "./pinguino.h"
 
-#define BUFFER_SIZE 256
 
 void Usage(char *progname) {
   std::cerr << "usage: " << progname << " hostname" << std::endl;
@@ -28,28 +28,29 @@ int main(int argc, char **argv) {
   if (argc != 2) {
     Usage(argv[0]);
   }
-
-
-  // TODO some check to see what was passed in, 4,6,url
-
+  
   // Get an appropriate sockaddr structure.
   struct sockaddr_storage addr;
-  if (!LookupName(argv[1], &addr)) {
+  char* ipAddr = new (char[NI_MAXHOST * sizeof(char)]);
+  if (!LookupName(argv[1], &addr, ipAddr)) {
     Usage(argv[0]);
   }
 
   // Connect to remote host
   int socket_fd;
-  // NOTE: USING RAW SOCKETS REQUIRES SUDO PERMISSIONS
   if (!CreateRawSocket(addr, &socket_fd)) {
     Usage(argv[0]);
   }
 
-  Ping(socket_fd, argv[1], addr);
+  // handles the interrupt
+  signal(SIGINT, Interrupt);
+
+  // ping
+  std::cout << "PING " << argv[1] << " (" << ipAddr << ")" <<std::endl;
+  Ping(socket_fd, ipAddr);
 
   // Clean up.
   close(socket_fd);
+  delete ipAddr;
   return EXIT_SUCCESS;
 }
-
-
