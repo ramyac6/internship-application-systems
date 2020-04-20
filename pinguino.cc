@@ -57,14 +57,18 @@ bool LookupName(char *name,
     return false;
   }
 
+  // This section borrows from angraves "Using getaddrinfo"
+  // https://github.com/angrave/SystemProgramming/wiki/Networking%2C-Part-2%3A-Using-getaddrinfo
   struct addrinfo *p;
   char host[256];
 
   for (p = results; p != NULL; p = p->ai_next) {
-    getnameinfo(p->ai_addr, p->ai_addrlen, host, sizeof (host), NULL, 0, NI_NUMERICHOST);
+    getnameinfo(p->ai_addr, p->ai_addrlen, host,
+                sizeof (host), NULL, 0, NI_NUMERICHOST);
     break;
   }
 
+  // pass out ip address
   snprintf(ipAddr, 256, host);
 
   // Return the first result.
@@ -89,11 +93,10 @@ bool CreateRawSocket(const struct sockaddr_storage &addr,
   return true;
 }
 
-
 void Ping(int sock_fd, char* host) {
   struct icmp* icmpSend;
   char packetbuf[128];
-  struct sockaddr_in returnAddr;
+  struct sockaddr_storage returnAddr;
   struct sockaddr_storage addr;
   socklen_t size = sizeof(returnAddr);
 
@@ -108,8 +111,8 @@ void Ping(int sock_fd, char* host) {
   timeout.tv_sec = 5;
   timeout.tv_usec = 0;
 
-  struct timespec start_time;
-  struct timespec end_time;
+  struct timespec start_ping;
+  struct timespec end_ping;
   struct timespec begin;
   struct timespec end;
 
@@ -134,21 +137,22 @@ void Ping(int sock_fd, char* host) {
 
     // setup icmp packet
     icmpSend = (struct icmp*) packetbuf;
+    memset(icmpSend, 0, sizeof(packetbuf));
     icmpSend->icmp_type = ICMP_ECHO;
     icmpSend->icmp_code = 0;
     icmpSend->icmp_seq = count++;
     icmpSend->icmp_id = getpid();
 
     // get time when packet is sent
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
+    clock_gettime(CLOCK_MONOTONIC, &start_ping);
 
     // Send ICMP header to server
     errorCheck = sendto(sock_fd,
                         icmpSend,
-                        64,
+                        PACKET_SIZE,
                         0,
-                        (reinterpret_cast<sockaddr*>(&addr)),
-                        sizeof(addr));
+                        ((struct sockaddr*)(&addr)),
+                        size);
 
     // check if packet was sent
     if (errorCheck < 0) {
@@ -156,8 +160,8 @@ void Ping(int sock_fd, char* host) {
     } else {
       // receive packet
       errorCheck = recvfrom(sock_fd,
-                            packetbuf,
-                            sizeof(packetbuf),
+                            icmpSend,
+                            PACKET_SIZE,
                             0,
                             (struct sockaddr*)(&returnAddr),
                             &size);
@@ -168,15 +172,13 @@ void Ping(int sock_fd, char* host) {
         return;
       } else {
         // get time packet was received
-        clock_gettime(CLOCK_MONOTONIC, &end_time);
+        clock_gettime(CLOCK_MONOTONIC, &end_ping);
 
-        // calculate rtt
-        int64_t timeElapsed =
-                reinterpret_cast<int64_t>(end_time.tv_sec - start_time.tv_sec)
-                * 1000000.0;
-        int64_t rtt_msec = (timeElapsed +
-                           reinterpret_cast<int64_t>(end_time.tv_nsec) -
-                           start_time.tv_nsec)/1.0e3;
+        // calculate milliseconds from nanoseconds
+        double ping_time = ((end_ping.tv_nsec - start_ping.tv_nsec))/1000000.0;
+        // calculating milliseconds from seconds
+        ping_time += ((end_ping.tv_sec - start_ping.tv_sec) * 1000.0);
+        double rtt_msec = ping_time;
 
         // print time for packet rtt
         std::cout << "64 bytes from " << host << ": icmp_seq=" << count;
@@ -197,7 +199,7 @@ void Ping(int sock_fd, char* host) {
   std::cout << "----------------ping statistics-----------------" << std::endl;
   double pkt_loss = 1.0*(count-received)/count*100;
   double total_time = ((end.tv_nsec - begin.tv_nsec))/1000000.0;
-  total_time += ((end.tv_sec - begin.tv_sec) * 1000.0) - 1000;
+  total_time += ((end.tv_sec - begin.tv_sec) * 1000.0);
   std::cout << count <<" packets transmitted, " << received << " received, ";
   std::cout << pkt_loss << " percent packet loss, time " << total_time;
   std::cout << " ms" <<   std::endl;
